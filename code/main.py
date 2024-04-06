@@ -1,4 +1,5 @@
 import os
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 from pathlib import Path
 # import tensorflow as tf
 from keras.datasets import mnist
@@ -19,10 +20,14 @@ from utils import (
 
 
 @handle('load-data')
-def load_data():
-    (train_X, train_y), (test_X, test_y) = mnist.load_data()
-    rand_index = np.random.choice(train_X.shape[0])
-    plt.imshow(train_X[rand_index], cmap=plt.get_cmap('gray'))
+def load_mnist():
+    return mnist.load_data()
+
+
+def display_mnist(sample):
+    if sample.shape != (28, 28):
+        raise ValueError(f"Dimensions must be {(28, 28)}")
+    plt.imshow(sample, cmap=plt.get_cmap('gray'))
     plt.axis('off')  # Turn off axis
     plt.show()
 
