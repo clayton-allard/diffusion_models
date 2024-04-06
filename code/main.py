@@ -1,5 +1,8 @@
 import os
 from pathlib import Path
+import tensorflow as tf
+from keras.datasets import mnist
+import matplotlib.pyplot as plt
 
 import numpy as np
 
@@ -13,3 +16,8 @@ from utils import (
     handle,
     run,
 )
+
+@handle('load-data')
+def load_data():
+    (train_X, train_y), (test_X, test_y) = mnist.load_data()
+    plt.imshow(np.random.choice(train_X), cmap=plt.get_cmap('gray'))
