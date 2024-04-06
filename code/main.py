@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-import tensorflow as tf
+# import tensorflow as tf
 from keras.datasets import mnist
 import matplotlib.pyplot as plt
 
@@ -17,7 +17,15 @@ from utils import (
     run,
 )
 
+
 @handle('load-data')
 def load_data():
     (train_X, train_y), (test_X, test_y) = mnist.load_data()
-    plt.imshow(np.random.choice(train_X), cmap=plt.get_cmap('gray'))
+    rand_index = np.random.choice(train_X.shape[0])
+    plt.imshow(train_X[rand_index], cmap=plt.get_cmap('gray'))
+    plt.axis('off')  # Turn off axis
+    plt.show()
+
+
+if __name__ == "__main__":
+    main()
