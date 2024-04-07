@@ -1,4 +1,23 @@
 import argparse
+import os
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+from keras.datasets import mnist
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+def load_mnist():
+    return mnist.load_data()
+
+def display_mnist(sample):
+    if sample.shape != (28, 28):
+        raise ValueError(f"Dimensions must be {(28, 28)}")
+    plt.imshow(sample, cmap=plt.get_cmap('gray'))
+    plt.axis('off')  # Turn off axis
+    plt.show()
+
+def alpha(X, t):
+    return np.prod(1 - X[:t])
 
 _funcs = {}
 

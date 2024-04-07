@@ -2,7 +2,6 @@ import os
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 from pathlib import Path
 # import tensorflow as tf
-from keras.datasets import mnist
 import matplotlib.pyplot as plt
 
 import numpy as np
@@ -19,9 +18,9 @@ from utils import (
 )
 
 
-@handle('load-data')
-def load_mnist():
-    return mnist.load_data()
+# @handle('load-data')
+# def load_mnist():
+#     return mnist.load_data()
 
 
 def display_mnist(sample):
