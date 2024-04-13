@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 from tqdm import tqdm
 
 import numpy as np
@@ -17,12 +18,13 @@ class Simple_DDPM():
         self.alpha = 1 - self.beta
         self.alpha_bar = torch.cumprod(self.alpha, dim=0)
         self.weights = None
+        self.shape = None
 
     def forward_process(self, X, t):
-        ab = self.alpha_bar[:t]
+        ab = self.alpha_bar[t]
         # treat each pixel as independent
-        epsilon = np.random.normal(size=X.shape)
-        return {'epsilon': epsilon, 'state': np.sqrt(ab) * X + np.sqrt(1 - ab) * epsilon}
+        epsilon = torch.randn_like(X)
+        return {'epsilon': epsilon, 'state': torch.sqrt(ab) * X + torch.sqrt(1 - ab) * epsilon}
 
     def backward_process(self, Z, t, epsilon):
         # some complicated unet shit
@@ -32,7 +34,7 @@ class Simple_DDPM():
         # assume all shapes are the same
         self.shape = X[0].shape
         for i in tqdm(range(steps)):
-            t = np.random.choice(self.T)
+            t = torch.randint(low=1, high=self.T)
             epsilon, Z = self.forward_process(X, t).values()
             # update Unet weights
             self.backward_process(Z, t, epsilon)
@@ -48,12 +50,11 @@ class Simple_DDPM():
         :param return_seq: set to True to return the whole sequence or False for just the final output (default: False)
         :return: The generated sample
         '''
-        X = np.zeros([self.T] + self.shape)
-        X[-1] = np.random.normal(size=self.shape)
+        X = torch.zeros([self.T] + self.shape)
+        X[-1] = torch.randn_like(self.shape)
         for i in range(self.T, 1):
-            z = np.random.normal(size = self.shape) if i > 1 else 0
+            z = torch.randn_like(self.shape) if i > 1 else 0
 
-            sigma = np.sqrt(self.beta[i])
-            alpha_bar = utils.alpha(self.beta, i)
-            X[i-1] = (X[i] - self.beta[i]/np.sqrt(1 - alpha_bar)*self.predict(X[i], i)) + sigma * z
+            sigma = torch.sqrt(self.beta[i])
+            X[i-1] = (X[i] - self.beta[i]/torch.sqrt(1 - self.alpha_bar[i])*self.predict(X[i], i)) + sigma * z
         return X if return_seq else X[0]
