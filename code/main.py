@@ -1,9 +1,13 @@
 import os
-os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
-from keras.datasets import mnist
+
+import torch
+
+# os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+# from keras.datasets import mnist
 from pathlib import Path
 # import tensorflow as tf
 import matplotlib.pyplot as plt
+import utils
 
 import numpy as np
 
@@ -18,28 +22,37 @@ from utils import (
     run,
 )
 
-from ddpm import(
+from ddpm import (
     Simple_DDPM
 )
 
-@handle('ddpm')
+
+@handle('train-ddpm')
 def simple_ddpm():
-    mnist_data = load_mnist()
+    mnist_data = utils.load_mnist()
     ddpm = Simple_DDPM()
-    ddpm.fit(mnist_data)
+    ddpm.fit(mnist_data, epochs=100, path='../models/simple_100epoch_1e-3lr.pkl')
+    # samp = ddpm.sample(True)
+    # utils.display_mnist(samp[0])
 
 
-def load_mnist():
-    (train_X, train_y), (test_X, test_y) = mnist.load_data()
-    return train_X.astype('float32')[:,None,:,:] / 255.0
+@handle('sample-ddpm')
+def sample_simple_ddpm(samples=1):
+    # load model
+    ddpm = utils.load('../models/simple_100epoch_1e-3lr.pkl')
+    # print(sum(p.numel() for p in ddpm.model.parameters() if p.requires_grad))
+
+    # sample model
+    sample = ddpm.sample()
+    utils.display_mnist(sample[0])
 
 
-def display_mnist(sample):
-    if sample.shape != (28, 28):
-        raise ValueError(f"Dimensions must be {(28, 28)}")
-    plt.imshow(sample, cmap=plt.get_cmap('gray'))
-    plt.axis('off')  # Turn off axis
-    plt.show()
+# def display_mnist(sample):
+#     if sample.shape != (28, 28):
+#         raise ValueError(f"Dimensions must be {(28, 28)}")
+#     plt.imshow(sample, cmap=plt.get_cmap('gray'))
+#     plt.axis('off')  # Turn off axis
+#     plt.show()
 
 
 if __name__ == "__main__":
