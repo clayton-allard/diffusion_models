@@ -21,7 +21,7 @@ class Simple_DDPM():
         self.device = device
         self.T = T
         self.lr = lr
-        self.beta = torch.linspace(min_beta, max_beta).to(device)
+        self.beta = torch.linspace(min_beta, max_beta, steps=self.T).to(device)
         self.alpha = 1 - self.beta
         self.alpha_bar = torch.cumprod(self.alpha, dim=0)
         self.model = None
@@ -29,45 +29,43 @@ class Simple_DDPM():
         self.optimizer = None
         self.loss = None
 
-    def forward_process(self, X, t):
-        ab = self.alpha_bar[t]
-        # treat each pixel as independent
-        epsilon = torch.randn_like(X)
-        return {'epsilon': epsilon, 'state': torch.sqrt(ab) * X + torch.sqrt(1 - ab) * epsilon}
+    def forward_process(self, X, t, epsilon):
+        ab = self.alpha_bar[t][:, :, None, None]
+        return torch.sqrt(ab) * X + torch.sqrt(1 - ab) * epsilon
 
     def backward_process(self, Z, t, epsilon):
         cost = self.loss(epsilon, self.predict(Z, t))
 
+        # back propogation
         self.optimizer.zero_grad()
         cost.backward()
         self.optimizer.step()
 
-    def fit(self, X, epochs=100, batch_size=30, path=None):
+    def fit(self, X, epochs=30, batch_size=30, path=None):
         # assume all shapes are the same
         self.shape = X[0].shape
 
         # configure model
-        model = Unet(channels=self.shape[0]).to(self.device)
+        model = Unet(channels=self.shape[0], layers=0).to(self.device)
         self.model = model
         self.optimizer = optim.AdamW(model.parameters(), lr=self.lr)
         self.loss = nn.MSELoss()
 
-        for i in tqdm(range(epochs)):
-
+        for i in tqdm(range(epochs), desc="Epochs"):
+            # create batches
             dataloader = DataLoader(X, batch_size, shuffle=True)
-
-            for batch in tqdm(dataloader, leave=False):
+            for batch in dataloader:
+                # random times
                 rand_times = torch.randint(low=1, high=self.T, size=(len(batch),))
-                for j in batch:
-                    t = rand_times[j]
-                    epsilon, Z = self.forward_process(X, t).values()
-                    # update Unet weights
-                    self.backward_process(Z, t, epsilon)
+                t = rand_times.unsqueeze(1).to(self.device)
+                epsilon = torch.randn_like(batch).to(self.device)
+                Z = self.forward_process(batch.to(self.device), t, epsilon)
+                self.backward_process(Z, t, epsilon)
 
         # save model so we do not need to rerun program
         if path is not None:
             abspath = os.path.abspath(path)
-            torch.save(model, abspath)
+            torch.save(model.state_dict(), abspath)
             print(f"The model has been saved to {abspath}")
 
     def predict(self, Z, t):
@@ -81,12 +79,11 @@ class Simple_DDPM():
         :param return_seq: set to True to return the whole sequence or False for just the final output (default: False)
         :return: The generated sample
         '''
-        X = torch.zeros([self.T] + self.shape)
-        X[-1] = torch.randn_like(self.shape)
-        # traversing backwards in the process
-        for i in range(self.T, 1):
-            z = torch.randn_like(self.shape) if i > 1 else 0
-
+        X = torch.zeros([self.T] + list(self.shape)).to(self.device)
+        X[-1] = torch.randn_like(X[-1])
+        for i in range(self.T - 1, 0, -1):
+            z = torch.randn_like(X[i]) if i > 1 else 0
             sigma = torch.sqrt(self.beta[i])
-            X[i - 1] = (X[i] - self.beta[i] / torch.sqrt(1 - self.alpha_bar[i]) * self.predict(X[i], i)) + sigma * z
+            X[i - 1] = (X[i] - self.beta[i] / torch.sqrt(1 - self.alpha_bar[i]) * self.predict(X[i], torch.tensor(i).to(
+                self.device))) + sigma * z
         return X if return_seq else X[0]

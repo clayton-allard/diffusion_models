@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 import torch.nn as nn
 
@@ -36,8 +37,11 @@ class Unet(nn.Module):
             10000
             ** (torch.arange(0, channels, 2, device=self.device).float() / channels)
         )
-        pos_enc_a = torch.sin(t.repeat(1, channels // 2) * inv_freq)
-        pos_enc_b = torch.cos(t.repeat(1, channels // 2) * inv_freq)
+        # print(inv_freq.shape)
+        # print(t.shape)
+        # print(channels // 2)
+        pos_enc_a = torch.sin(t.repeat(1, channels // 2) * inv_freq.view(1, -1))
+        pos_enc_b = torch.cos(t.repeat(1, channels // 2) * inv_freq.view(1, -1))
         # stack horizontally
         pos_enc = torch.cat([pos_enc_a, pos_enc_b], dim=-1)
         return pos_enc
@@ -46,12 +50,12 @@ class Unet(nn.Module):
         # store skip connections
         skip_connections = []
         # copied from dome272 to get inputs for position embedding
-        t = t.unsqueeze(-1).type(torch.float)
+        # t = t.unsqueeze(-1).type(torch.float)
         t = self.pos_encoding(t, self.emb_dim)
 
         # run forward process through UNET
 
-        x = self.input(x)
+        x = self.input(x, t)
 
         # store skip connections prior to max pooling.
         for down in self.down:
@@ -61,12 +65,17 @@ class Unet(nn.Module):
 
         skip_connections.reverse()
 
-        x = nn.MaxPool2d(kernel_size=2)(x)
-        x = self.center(x)
+        # for s in skip_connections:
+        #     print(f'skip con: {s.shape}')
+
+        x = self.center(x, t)
 
         # upscaling includes transposed convolutions and combining skip connections for convolution blocks
         for up, skip, trans in zip(self.up, skip_connections, self.trans_conv):
+            # print(x.shape)
             x = trans(x)
+            # print(x.shape)
+            # print(np.shape(skip))
             x = torch.cat([x, skip], dim=1)
             x = up(x, t)
 
