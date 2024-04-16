@@ -1,4 +1,5 @@
 import os
+from keras.datasets import mnist
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 from pathlib import Path
 # import tensorflow as tf
@@ -17,10 +18,21 @@ from utils import (
     run,
 )
 
+from ddpm import(
+    Simple_DDPM
+)
 
-# @handle('load-data')
-# def load_mnist():
-#     return mnist.load_data()
+@handle('ddpm')
+def simple_ddpm():
+    mnist_data = load_mnist()
+    ddpm = Simple_DDPM()
+    ddpm.fit(mnist_data)
+
+
+def load_mnist():
+    (train_X, train_y), (test_X, test_y) = mnist.load_data()
+    train_X /= 255.
+    return train_X
 
 
 def display_mnist(sample):

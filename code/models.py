@@ -4,7 +4,7 @@ import torch.nn as nn
 
 class Unet(nn.Module):
 
-    def __init__(self, channels, layers=3, emb_dim=16, device='cuda', *args, **kwargs):
+    def __init__(self, channels=3, layers=3, emb_dim=16, device='cuda', *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.device = device
         self.emb_dim = emb_dim
@@ -67,14 +67,14 @@ class Unet(nn.Module):
         # upscaling includes transposed convolutions and combining skip connections for convolution blocks
         for up, skip, trans in zip(self.up, skip_connections, self.trans_conv):
             x = trans(x)
-            x = torch.cat(x, skip)
+            x = torch.cat([x, skip], dim=1)
             x = up(x, t)
 
         return self.output(x, None)
 
 
 class Block(nn.Module):
-    def __init__(self, inp_channels, out_channels, kernel_size=3, padding=1, emb_dim=16, *args, **kwargs):
+    def __init__(self, inp_channels, out_channels, kernel_size=3, padding=1, emb_dim=16, device="cuda", *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         # copied from dome272
@@ -87,10 +87,10 @@ class Block(nn.Module):
 
         # convolution block
         self.conv = nn.Sequential(
-            nn.Conv2d(inp_channels, out_channels, kernel_size, padding=padding, device=self.device),
+            nn.Conv2d(inp_channels, out_channels, kernel_size, padding=padding, device=device),
             nn.BatchNorm2d(out_channels),
             nn.ReLU(),
-            nn.Conv2d(out_channels, out_channels, kernel_size, padding=padding, device=self.device),
+            nn.Conv2d(out_channels, out_channels, kernel_size, padding=padding, device=device),
             nn.BatchNorm2d(out_channels),
             nn.ReLU())
 
