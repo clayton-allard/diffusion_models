@@ -6,9 +6,8 @@ import torch
 import torch.nn as nn
 from torch import optim
 from torch.utils.data import DataLoader
+import pytorch_ssim
 
-import numpy as np
-import utils
 from models import Unet
 
 
@@ -21,9 +20,18 @@ class Simple_DDPM():
         self.device = device
         self.T = T
         self.lr = None
-        self.beta = torch.linspace(min_beta, max_beta, steps=self.T).to(device)
-        self.alpha = 1 - self.beta
-        self.alpha_bar = torch.cumprod(self.alpha, dim=0)
+        # self.beta = torch.linspace(min_beta, max_beta, steps=self.T).to(device)
+        # self.alpha = 1 - self.beta
+        # self.alpha_bar = torch.cumprod(self.alpha, dim=0)
+
+        s = torch.tensor(0.008, device=device)
+        t = torch.arange(1, self.T + 1, 1).to(device)
+        alpha_bar0 = torch.cos(s/(1 + s) * torch.pi / 2)**2
+        self.alpha_bar = torch.cos((t/T + s)/(1 + s) * torch.pi / 2)**2/alpha_bar0
+        self.alpha = self.alpha_bar[1:]/self.alpha_bar[:-1]
+        number = torch.tensor([self.alpha_bar[0]], device=device)
+        self.alpha = torch.cat([number, self.alpha], dim=0)
+        self.beta = 1 - self.alpha
         self.shape = None
         self.model = None
         self.optimizer = None
@@ -42,18 +50,23 @@ class Simple_DDPM():
         cost.backward()
         self.optimizer.step()
 
-    def fit(self, X, epochs=100, batch_size=30, lr=1e-3, path=None):
+        return cost
+
+    def fit(self, X, epochs=100, batch_size=2500, lr=1e-3, emb_dim=16, path=None):
         # assume all shapes are the same
         self.shape = X[0].shape
         self.lr = lr
 
         # configure model
-        model = Unet(channels=self.shape[0], layers=2).to(self.device)
+        model = Unet(channels=self.shape[0], layers=3, emb_dim=emb_dim).to(self.device)
         self.model = model
-        self.optimizer = optim.AdamW(model.parameters(), lr=self.lr)
+        self.optimizer = optim.Adam(model.parameters(), lr=self.lr)
         self.loss = nn.MSELoss()
 
-        for i in tqdm(range(epochs), desc="Epochs"):
+        # Initialize the tqdm progress bar
+        progress_bar = tqdm(total=epochs, desc="Epoch")
+
+        for i in range(epochs):
             # create batches
             dataloader = DataLoader(X, batch_size, shuffle=True)
             for batch in dataloader:
@@ -61,11 +74,21 @@ class Simple_DDPM():
                 rand_times = torch.randint(low=1, high=self.T, size=(len(batch),))
                 t = rand_times.unsqueeze(1).to(self.device)
                 Z, epsilon = self.forward_process(batch.to(self.device), t)
-                self.backward_process(Z, t, epsilon)
+                cost = self.backward_process(Z, t, epsilon)
+
+                # Update the tqdm progress bar with the current loss
+                progress_bar.set_postfix({'Loss': cost.item()})
+            progress_bar.update()
+
+        # Close the tqdm progress bar
+        progress_bar.close()
 
         # save model so we do not need to rerun program
         if path is not None:
             self.save(path)
+
+    def resume_training(self, epochs=100, batch_size=2500):
+        raise NotImplementedError()
 
     def save(self, path):
         abspath = os.path.abspath(path)
@@ -94,8 +117,8 @@ class Simple_DDPM():
                 z = torch.randn_like(X[i]) if i > 1 else 0
                 sigma = torch.sqrt(self.beta[i])
                 # print(X[i].shape)
-                X[i - 1] = (X[i] - self.beta[i] / torch.sqrt(1 - self.alpha_bar[i]) * self.predict(X[i],torch.tensor(i).to(
-                    self.device))) + sigma * z
+                X[i - 1] = (X[i] - self.beta[i] / torch.sqrt(1 - self.alpha_bar[i]) * self.predict(X[i],
+                              torch.tensor(i).to(self.device))) / torch.sqrt(self.alpha[i]) + sigma * z
         self.model.train()
         X = (X.clamp(-1, 1) + 1) / 2
         X = (X * 255).type(torch.uint8)

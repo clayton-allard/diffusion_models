@@ -31,7 +31,7 @@ from ddpm import (
 def simple_ddpm():
     mnist_data = utils.load_mnist()
     ddpm = Simple_DDPM()
-    ddpm.fit(mnist_data, epochs=100, path='../models/simple_100epoch_1e-3lr.pkl')
+    ddpm.fit(mnist_data, epochs=100, batch_size=1000, lr=1e-3, emb_dim=32, path='../models/cosine_schedule.pkl')
     # samp = ddpm.sample(True)
     # utils.display_mnist(samp[0])
 
@@ -39,12 +39,36 @@ def simple_ddpm():
 @handle('sample-ddpm')
 def sample_simple_ddpm(samples=1):
     # load model
-    ddpm = utils.load('../models/simple_100epoch_1e-3lr.pkl')
+    ddpm = utils.load('../models/3layers.pkl')
     # print(sum(p.numel() for p in ddpm.model.parameters() if p.requires_grad))
 
     # sample model
-    sample = ddpm.sample()
-    utils.display_mnist(sample[0])
+    sample = ddpm.sample(return_seq=True)
+    # utils.display_mnist_progression(sample)
+    utils.create_mnist_gif(sample)
+
+
+@handle('test')
+def get_sample():
+    device = "cuda"
+    mnist_data = utils.load_mnist()
+    ddpm = utils.load('../models/3layers.pkl')
+    idx = torch.randint(0, len(mnist_data), (1,)).to(device)
+    X = mnist_data[idx.cpu()].to(device)
+    t = torch.randint(0, 300, (1,))[None, :].to(device)
+    print(t)
+    ab = ddpm.alpha_bar[t][:, :, None, None]
+    Z, epsilon = ddpm.forward_process(X, t)
+    ep_pred = ddpm.predict(Z, t).clone().detach()
+    X_pred = (Z - torch.sqrt(1 - ab) * ep_pred)/torch.sqrt(ab)
+    X_pred = X_pred
+    utils.display_mnist(X)
+    utils.display_mnist(Z)
+    utils.display_mnist(X_pred)
+
+    utils.display_mnist(ep_pred)
+    utils.display_mnist(epsilon)
+
 
 
 # def display_mnist(sample):

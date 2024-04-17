@@ -11,13 +11,17 @@ class Unet(nn.Module):
         self.emb_dim = emb_dim
 
         # first two CNN layers
-        self.input = Block(channels, emb_dim)
+        self.input = Block(channels, emb_dim, emb_dim=emb_dim, padding=2, shape=32)
 
         # scale down
-        self.down = nn.ModuleList([Block(emb_dim * 2 ** i, emb_dim * 2 ** (i + 1)) for i in range(layers)])
+        # self.down = nn.ModuleList([Block(emb_dim * 2 ** i, emb_dim * 2 ** (i + 1), emb_dim=emb_dim, shape=) for i in range(layers)])
+        self.down = nn.ModuleList(
+            [Block(emb_dim, emb_dim * 2, emb_dim=emb_dim, shape=16),
+             Block(emb_dim * 2, emb_dim * 4, emb_dim=emb_dim, shape=8),
+             Block(emb_dim * 4, emb_dim * 8, emb_dim=emb_dim, shape=4),])
 
         # transition between downscale and upscale
-        self.center = Block(emb_dim * 2 ** layers, emb_dim * 2 ** layers)
+        self.center = Block(emb_dim * 2 ** layers, emb_dim * 2 ** layers, emb_dim=emb_dim)
 
         # upscale
         self.trans_conv = nn.ModuleList([nn.ConvTranspose2d(emb_dim * 2 ** (i + 1),
@@ -26,10 +30,10 @@ class Unet(nn.Module):
                                                             stride=2) for i in reversed(range(layers))])
 
         # Using channels from the transposed convolution and skip connections
-        self.up = nn.ModuleList([Block(emb_dim * 2 ** (i + 1), emb_dim * 2 ** i) for i in reversed(range(layers))])
+        self.up = nn.ModuleList([Block(emb_dim * 2 ** (i + 1), emb_dim * 2 ** i, emb_dim=emb_dim, shape=2**(5 - i)) for i in reversed(range(layers))])
 
         # final prediction
-        self.output = Block(emb_dim, channels)
+        self.output = Block(emb_dim, channels, emb_dim=emb_dim, padding=0, shape=28)
 
     # copied from dome272
     def pos_encoding(self, t, channels):
@@ -83,12 +87,13 @@ class Unet(nn.Module):
 
 
 class Block(nn.Module):
-    def __init__(self, inp_channels, out_channels, kernel_size=3, padding=1, emb_dim=16, device="cuda", *args, **kwargs):
+    def __init__(self, inp_channels, out_channels, kernel_size=3, padding=1, emb_dim=16, shape=None, device="cuda", *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.shape = shape if shape is None else (shape, shape)
 
         # copied from dome272
         self.time_embedding = nn.Sequential(
-            nn.SiLU(),
+            # nn.SiLU(),
             nn.Linear(
                 emb_dim,
                 out_channels
@@ -98,11 +103,14 @@ class Block(nn.Module):
         self.conv = nn.Sequential(
             nn.Conv2d(inp_channels, out_channels, kernel_size, padding=padding, device=device),
             nn.BatchNorm2d(out_channels),
-            nn.ReLU(),
+            nn.LeakyReLU(),
+            # nn.Dropout2d(0.5),
             nn.Conv2d(out_channels, out_channels, kernel_size, padding=padding, device=device),
             nn.BatchNorm2d(out_channels),
-            nn.ReLU())
+            nn.LeakyReLU())
+            # nn.Dropout2d(0.5))
 
     def forward(self, x, t):
-        time = 0 if t is None else self.time_embedding(t)[:, :, None, None].repeat(1, 1, x.shape[-2], x.shape[-1])
+        self.shape = x.shape[-2:] if self.shape is None else self.shape
+        time = 0 if t is None else self.time_embedding(t)[:, :, None, None].repeat(1, 1, self.shape[0], self.shape[1])
         return self.conv(x) + time
