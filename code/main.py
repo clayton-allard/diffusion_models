@@ -30,21 +30,31 @@ from ddpm import (
 @handle('train-ddpm')
 def simple_ddpm():
     mnist_data = utils.load_mnist()
-    ddpm = Simple_DDPM()
-    ddpm.fit(mnist_data, epochs=100, batch_size=1000, lr=1e-3, emb_dim=32, path='../models/cosine_schedule.pkl')
+    ddpm = Simple_DDPM(T=100)
+    ddpm.fit(mnist_data, epochs=1000, batch_size=1000, lr=4e-3, emb_dim=32, path='../models/4layers.pkl')
     # samp = ddpm.sample(True)
     # utils.display_mnist(samp[0])
+
+
+@handle('resume-training')
+def resume():
+    mnist_data = utils.load_mnist()
+    ddpm = utils.load('../models/4layers.pkl')
+    ddpm.alpha_bar = ddpm.alpha_bar[-1]
+    ddpm.alpha = ddpm.alpha[-1]
+    ddpm.beta = ddpm.beta[-1]
+    ddpm.train(mnist_data, epochs=100, batch_size=1000, path='../models/4layers_p2.pkl')
 
 
 @handle('sample-ddpm')
 def sample_simple_ddpm(samples=1):
     # load model
-    ddpm = utils.load('../models/3layers.pkl')
+    ddpm = utils.load('../models/4layers.pkl')
     # print(sum(p.numel() for p in ddpm.model.parameters() if p.requires_grad))
 
     # sample model
     sample = ddpm.sample(return_seq=True)
-    # utils.display_mnist_progression(sample)
+    # utils.display_mnist(sample)
     utils.create_mnist_gif(sample)
 
 
@@ -52,15 +62,15 @@ def sample_simple_ddpm(samples=1):
 def get_sample():
     device = "cuda"
     mnist_data = utils.load_mnist()
-    ddpm = utils.load('../models/3layers.pkl')
+    ddpm = utils.load('../models/4layers.pkl')
     idx = torch.randint(0, len(mnist_data), (1,)).to(device)
     X = mnist_data[idx.cpu()].to(device)
-    t = torch.randint(0, 300, (1,))[None, :].to(device)
+    t = torch.randint(0, 100, (1,))[None, :].to(device)
     print(t)
     ab = ddpm.alpha_bar[t][:, :, None, None]
     Z, epsilon = ddpm.forward_process(X, t)
     ep_pred = ddpm.predict(Z, t).clone().detach()
-    X_pred = (Z - torch.sqrt(1 - ab) * ep_pred)/torch.sqrt(ab)
+    X_pred = (Z - torch.sqrt(1 - ab) * ep_pred) / torch.sqrt(ab)
     X_pred = X_pred
     utils.display_mnist(X)
     utils.display_mnist(Z)
@@ -68,7 +78,6 @@ def get_sample():
 
     utils.display_mnist(ep_pred)
     utils.display_mnist(epsilon)
-
 
 
 # def display_mnist(sample):

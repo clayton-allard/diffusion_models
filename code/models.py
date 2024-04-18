@@ -14,11 +14,11 @@ class Unet(nn.Module):
         self.input = Block(channels, emb_dim, emb_dim=emb_dim, padding=2, shape=32)
 
         # scale down
-        # self.down = nn.ModuleList([Block(emb_dim * 2 ** i, emb_dim * 2 ** (i + 1), emb_dim=emb_dim, shape=) for i in range(layers)])
-        self.down = nn.ModuleList(
-            [Block(emb_dim, emb_dim * 2, emb_dim=emb_dim, shape=16),
-             Block(emb_dim * 2, emb_dim * 4, emb_dim=emb_dim, shape=8),
-             Block(emb_dim * 4, emb_dim * 8, emb_dim=emb_dim, shape=4),])
+        self.down = nn.ModuleList([Block(emb_dim * 2 ** i, emb_dim * 2 ** (i + 1), emb_dim=emb_dim, shape=2**(4 - i)) for i in range(layers)])
+        # self.down = nn.ModuleList(
+        #     [Block(emb_dim, emb_dim * 2, emb_dim=emb_dim, shape=16),
+        #      Block(emb_dim * 2, emb_dim * 4, emb_dim=emb_dim, shape=8),
+        #      Block(emb_dim * 4, emb_dim * 8, emb_dim=emb_dim, shape=4),])
 
         # transition between downscale and upscale
         self.center = Block(emb_dim * 2 ** layers, emb_dim * 2 ** layers, emb_dim=emb_dim)

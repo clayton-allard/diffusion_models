@@ -25,7 +25,7 @@ class Simple_DDPM():
         # self.alpha_bar = torch.cumprod(self.alpha, dim=0)
 
         s = torch.tensor(0.008, device=device)
-        t = torch.arange(1, self.T + 1, 1).to(device)
+        t = torch.arange(0, self.T, 1).to(device)
         alpha_bar0 = torch.cos(s/(1 + s) * torch.pi / 2)**2
         self.alpha_bar = torch.cos((t/T + s)/(1 + s) * torch.pi / 2)**2/alpha_bar0
         self.alpha = self.alpha_bar[1:]/self.alpha_bar[:-1]
@@ -58,10 +58,15 @@ class Simple_DDPM():
         self.lr = lr
 
         # configure model
-        model = Unet(channels=self.shape[0], layers=3, emb_dim=emb_dim).to(self.device)
+        model = Unet(channels=self.shape[0], layers=4, emb_dim=emb_dim).to(self.device)
         self.model = model
         self.optimizer = optim.Adam(model.parameters(), lr=self.lr)
         self.loss = nn.MSELoss()
+
+        self.train(X, epochs=epochs, batch_size=batch_size, path = path)
+
+
+    def train(self, X, epochs=100, batch_size=2500, path = None):
 
         # Initialize the tqdm progress bar
         progress_bar = tqdm(total=epochs, desc="Epoch")
@@ -86,9 +91,6 @@ class Simple_DDPM():
         # save model so we do not need to rerun program
         if path is not None:
             self.save(path)
-
-    def resume_training(self, epochs=100, batch_size=2500):
-        raise NotImplementedError()
 
     def save(self, path):
         abspath = os.path.abspath(path)
@@ -119,6 +121,7 @@ class Simple_DDPM():
                 # print(X[i].shape)
                 X[i - 1] = (X[i] - self.beta[i] / torch.sqrt(1 - self.alpha_bar[i]) * self.predict(X[i],
                               torch.tensor(i).to(self.device))) / torch.sqrt(self.alpha[i]) + sigma * z
+                im = X[i-1].cpu().numpy()
         self.model.train()
         X = (X.clamp(-1, 1) + 1) / 2
         X = (X * 255).type(torch.uint8)
