@@ -10,12 +10,66 @@ from PIL import Image
 import io
 
 import torch
+import torchvision
 from torchvision import datasets
+import torchvision.transforms as transforms
 from torchvision.transforms import ToTensor
+import torchvision.transforms.functional as TF
+from PIL import Image
+from torchvision.datasets import CIFAR10
 
 import matplotlib.pyplot as plt
 import numpy as np
 
+
+# def augment(data, num_samples):
+#     idx = torch.randint(0, len(data), (1,)).to("cuda")
+#     X = data[idx.cpu()].to("cuda")
+#     transform = transforms.RandomAffine(degrees=10, translate=(0.1, 0.1))
+
+def load_cifar10():
+    # Load images from .gz file
+    with gzip.open('../data/cifar_images.gz', 'rb') as f:
+        all_images_uint8 = np.load(f)
+        all_images_uint8 = np.reshape(all_images_uint8, (-1,3,32,32))
+
+    # Convert pixel values to float32 and scale to range [0, 1]
+    all_images_normalized = all_images_uint8.astype(np.float32) / 255.0
+    return torch.tensor(all_images_normalized, dtype=torch.float32)
+    # # Define the directory containing CIFAR-10 dataset files
+    # data_dir = "../data/cifar-10-batches-py/"  # Example path to the directory containing dataset files
+    #
+    # # Initialize empty lists to store images and labels
+    # all_images = []
+    #
+    # # Iterate over each dataset file in the directory
+    # for filename in os.listdir(data_dir):
+    #     if filename.startswith("data_batch_"):  # Check if the file is a data batch file
+    #         file_path = os.path.join(data_dir, filename)
+    #         with open(file_path, 'rb') as file:
+    #             cifar_data = pickle.load(file, encoding='bytes')
+    #         images = cifar_data[b'data']  # Extract raw image data
+    #         images_reshaped = images.reshape(-1, 3, 32, 32).transpose(0, 2, 3, 1)  # Reshape images to (3, 32, 32)
+    #         all_images.append(images_reshaped)
+    #
+    # # Concatenate images from all batches
+    # all_images_concatenated = np.concatenate(all_images, axis=0)
+    #
+    # # Convert images to uint8 and scale to [0, 255]
+    # all_images_uint8 = (all_images_concatenated * 255).astype(np.uint8)
+    #
+    # # Save images to .gz file
+    # with gzip.open('../data/cifar_images.gz', 'wb') as f:
+    #     np.save(f, all_images_uint8)
+    #
+    # print("Images saved to cifar_images.gz")
+
+def display_cifar(sample):
+    sample = torch.squeeze(sample).cpu()
+    sample = sample.reshape((32, 32, 3))
+    plt.imshow(sample)
+    plt.axis('off')  # Turn off axis
+    plt.show()
 
 def load(path):
     abspath = os.path.abspath(path)
@@ -27,7 +81,7 @@ def load(path):
 
 def load_mnist():
     # Download and load the MNIST training dataset
-    with gzip.open('../data/MNIST/raw/train-images-idx3-ubyte.gz', 'rb') as f:
+    with gzip.open('../data/mnist.gz', 'rb') as f:
         data = np.frombuffer(f.read(), np.uint8, offset=16)
     data = data.reshape(-1, 1, 28, 28) / 255.
     data = data * 2 - 1

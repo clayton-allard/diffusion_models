@@ -8,6 +8,7 @@ from pathlib import Path
 # import tensorflow as tf
 import matplotlib.pyplot as plt
 import utils
+from tqdm import tqdm
 
 import numpy as np
 
@@ -23,14 +24,20 @@ from utils import (
 )
 
 from ddpm import (
-    Simple_DDPM
+    DDPM
 )
 
+@handle('load')
+def load():
+    cifar = utils.load_cifar10()
+    i=torch.randint(0, len(cifar), (1,))
+    p = cifar[i]
+    utils.display_cifar(cifar[i])
 
 @handle('train-ddpm')
 def simple_ddpm():
     mnist_data = utils.load_mnist()
-    ddpm = Simple_DDPM(T=100)
+    ddpm = DDPM(T=100)
     ddpm.fit(mnist_data, epochs=1000, batch_size=1000, lr=4e-3, emb_dim=32, path='../models/4layers.pkl')
     # samp = ddpm.sample(True)
     # utils.display_mnist(samp[0])
@@ -39,30 +46,35 @@ def simple_ddpm():
 @handle('resume-training')
 def resume():
     mnist_data = utils.load_mnist()
-    ddpm = utils.load('../models/4layers.pkl')
-    ddpm.alpha_bar = ddpm.alpha_bar[-1]
-    ddpm.alpha = ddpm.alpha[-1]
-    ddpm.beta = ddpm.beta[-1]
-    ddpm.train(mnist_data, epochs=100, batch_size=1000, path='../models/4layers_p2.pkl')
+    ddpm = utils.load('../models/mnist_firstsuccess.pkl')
+    # one = torch.tensor([1], device="cuda")
+    # ddpm.alpha_bar = torch.cat([one, ddpm.alpha_bar[:-1]], dim=0)
+    # ddpm.alpha = torch.cat([one, ddpm.alpha[:-1]], dim=0)
+    # ddpm.beta = torch.cat([1-one, ddpm.beta[:-1]], dim=0)
+    # ddpm.save('../models/4layersfixed.pkl')
+    ddpm.train(mnist_data, epochs=500, batch_size=1000, lr=1e-3, path='../models/mnist_firstsuccess_p3.pkl')
 
 
 @handle('sample-ddpm')
-def sample_simple_ddpm(samples=1):
+def sample_simple_ddpm():
+    samples = 100
     # load model
-    ddpm = utils.load('../models/4layers.pkl')
+    ddpm = utils.load('../models/mnist_firstsuccess_p3.pkl')
     # print(sum(p.numel() for p in ddpm.model.parameters() if p.requires_grad))
 
     # sample model
-    sample = ddpm.sample(return_seq=True)
+    sample = ddpm.sample(num_samples=samples, return_seq=True)
     # utils.display_mnist(sample)
-    utils.create_mnist_gif(sample)
+    for i, s in tqdm(enumerate(sample.unbind(1)), desc = 'Generate Samples', total=samples):
+        utils.create_mnist_gif(s, filename=f'../samples/mnist_sample{i}.gif')
+    # utils.create_mnist_gif(sample, filename=f'../samples/mnist_progression.gif')
 
 
 @handle('test')
 def get_sample():
     device = "cuda"
     mnist_data = utils.load_mnist()
-    ddpm = utils.load('../models/4layers.pkl')
+    ddpm = utils.load('../models/mnist_firstsuccess.pkl')
     idx = torch.randint(0, len(mnist_data), (1,)).to(device)
     X = mnist_data[idx.cpu()].to(device)
     t = torch.randint(0, 100, (1,))[None, :].to(device)

@@ -5,13 +5,16 @@ import torch.nn as nn
 
 class Unet(nn.Module):
 
-    def __init__(self, channels=3, layers=3, emb_dim=16, device='cuda', *args, **kwargs):
+    def __init__(self, channels=3, layers=3, emb_dim=16, data = 'mnist',device='cuda', *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.device = device
         self.emb_dim = emb_dim
 
         # first two CNN layers
-        self.input = Block(channels, emb_dim, emb_dim=emb_dim, padding=2, shape=32)
+        if data == 'mnist':
+            self.input = Block(channels, emb_dim, emb_dim=emb_dim, padding=2, shape=32)
+        else:
+            self.input = Block(channels, emb_dim, emb_dim=emb_dim, shape=32)
 
         # scale down
         self.down = nn.ModuleList([Block(emb_dim * 2 ** i, emb_dim * 2 ** (i + 1), emb_dim=emb_dim, shape=2**(4 - i)) for i in range(layers)])
@@ -33,7 +36,10 @@ class Unet(nn.Module):
         self.up = nn.ModuleList([Block(emb_dim * 2 ** (i + 1), emb_dim * 2 ** i, emb_dim=emb_dim, shape=2**(5 - i)) for i in reversed(range(layers))])
 
         # final prediction
-        self.output = Block(emb_dim, channels, emb_dim=emb_dim, padding=0, shape=28)
+        if data == 'mnist':
+            self.output = Block(emb_dim, channels, emb_dim=emb_dim, padding=0, shape=28)
+        else:
+            self.output = Block(emb_dim, channels, emb_dim=emb_dim, shape=28)
 
     # copied from dome272
     def pos_encoding(self, t, channels):

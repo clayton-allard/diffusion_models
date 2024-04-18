@@ -11,11 +11,12 @@ import pytorch_ssim
 from models import Unet
 
 
-class Simple_DDPM():
+class DDPM():
     def __init__(self,
                  T=1000,
-                 min_beta=1e-4,
-                 max_beta=0.02,
+                 # min_beta=1e-4,
+                 # max_beta=0.02,
+                 data = 'mnist',
                  device="cuda"):
         self.device = device
         self.T = T
@@ -26,9 +27,9 @@ class Simple_DDPM():
 
         s = torch.tensor(0.008, device=device)
         t = torch.arange(0, self.T, 1).to(device)
-        alpha_bar0 = torch.cos(s/(1 + s) * torch.pi / 2)**2
-        self.alpha_bar = torch.cos((t/T + s)/(1 + s) * torch.pi / 2)**2/alpha_bar0
-        self.alpha = self.alpha_bar[1:]/self.alpha_bar[:-1]
+        alpha_bar0 = torch.cos(s / (1 + s) * torch.pi / 2) ** 2
+        self.alpha_bar = torch.cos((t / T + s) / (1 + s) * torch.pi / 2) ** 2 / alpha_bar0
+        self.alpha = self.alpha_bar[1:] / self.alpha_bar[:-1]
         number = torch.tensor([self.alpha_bar[0]], device=device)
         self.alpha = torch.cat([number, self.alpha], dim=0)
         self.beta = 1 - self.alpha
@@ -63,10 +64,18 @@ class Simple_DDPM():
         self.optimizer = optim.Adam(model.parameters(), lr=self.lr)
         self.loss = nn.MSELoss()
 
-        self.train(X, epochs=epochs, batch_size=batch_size, path = path)
+        self.train(X, epochs=epochs, batch_size=batch_size, path=path)
 
+    def train(self, X, epochs=100, batch_size=2500, lr=None, path=None):
 
-    def train(self, X, epochs=100, batch_size=2500, path = None):
+        # if this is run before fitting
+        if self.model is None:
+            raise RuntimeError("Must fit before calling this function.")
+
+        # use a different learning rate
+        if lr is not None:
+            for param_group in self.optimizer.param_groups:
+                param_group['lr'] = lr
 
         # Initialize the tqdm progress bar
         progress_bar = tqdm(total=epochs, desc="Epoch")
@@ -85,6 +94,10 @@ class Simple_DDPM():
                 progress_bar.set_postfix({'Loss': cost.item()})
             progress_bar.update()
 
+            # update model every 25 epochs in case code breaks
+            if (i + 1) % 25 == 0 and path is not None:
+                self.save(path, False)
+
         # Close the tqdm progress bar
         progress_bar.close()
 
@@ -92,12 +105,13 @@ class Simple_DDPM():
         if path is not None:
             self.save(path)
 
-    def save(self, path):
+    def save(self, path, verbose=True):
         abspath = os.path.abspath(path)
         abspath = abspath if abspath[-4:] == '.pkl' else abspath + '.pkl'
         with open(abspath, "wb") as f:
             pickle.dump(self, f)
-        print(f"The model has been saved to {abspath}")
+        if verbose:
+            print(f"The model has been saved to {abspath}")
 
     def predict(self, Z, t):
         # use the model
@@ -120,8 +134,10 @@ class Simple_DDPM():
                 sigma = torch.sqrt(self.beta[i])
                 # print(X[i].shape)
                 X[i - 1] = (X[i] - self.beta[i] / torch.sqrt(1 - self.alpha_bar[i]) * self.predict(X[i],
-                              torch.tensor(i).to(self.device))) / torch.sqrt(self.alpha[i]) + sigma * z
-                im = X[i-1].cpu().numpy()
+                                                                                                   torch.tensor(i).to(
+                                                                                                       self.device))) / torch.sqrt(
+                    self.alpha[i]) + sigma * z
+                im = X[i - 1].cpu().numpy()
         self.model.train()
         X = (X.clamp(-1, 1) + 1) / 2
         X = (X * 255).type(torch.uint8)
