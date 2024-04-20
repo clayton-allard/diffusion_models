@@ -11,7 +11,7 @@ import pytorch_ssim
 from models import Unet
 
 
-class DDPM():
+class Simple_DDPM():
     def __init__(self,
                  T=1000,
                  # min_beta=1e-4,
@@ -21,6 +21,7 @@ class DDPM():
         self.device = device
         self.T = T
         self.lr = None
+        self.data = data
         # self.beta = torch.linspace(min_beta, max_beta, steps=self.T).to(device)
         # self.alpha = 1 - self.beta
         # self.alpha_bar = torch.cumprod(self.alpha, dim=0)
@@ -59,7 +60,7 @@ class DDPM():
         self.lr = lr
 
         # configure model
-        model = Unet(channels=self.shape[0], layers=4, emb_dim=emb_dim).to(self.device)
+        model = Unet(channels=self.shape[0], layers=4, emb_dim=emb_dim, data=self.data).to(self.device)
         self.model = model
         self.optimizer = optim.Adam(model.parameters(), lr=self.lr)
         self.loss = nn.MSELoss()
@@ -94,8 +95,8 @@ class DDPM():
                 progress_bar.set_postfix({'Loss': cost.item()})
             progress_bar.update()
 
-            # update model every 25 epochs in case code breaks
-            if (i + 1) % 25 == 0 and path is not None:
+            # update model every 100 epochs in case code breaks
+            if (i + 1) % 100 == 0 and path is not None:
                 self.save(path, False)
 
         # Close the tqdm progress bar

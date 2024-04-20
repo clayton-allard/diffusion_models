@@ -24,49 +24,58 @@ from utils import (
 )
 
 from ddpm import (
-    DDPM
+    Simple_DDPM
 )
 
 @handle('load')
 def load():
     cifar = utils.load_cifar10()
     i=torch.randint(0, len(cifar), (1,))
-    p = cifar[i]
-    utils.display_cifar(cifar[i])
+    # utils.display_cifar(cifar[i])
 
 @handle('train-ddpm')
 def simple_ddpm():
-    mnist_data = utils.load_mnist()
-    ddpm = DDPM(T=100)
-    ddpm.fit(mnist_data, epochs=1000, batch_size=1000, lr=4e-3, emb_dim=32, path='../models/4layers.pkl')
+    mnist_data = utils.load_cifar10()
+    ddpm = Simple_DDPM(T=100, data='cifar')
+    ddpm.fit(mnist_data, epochs=500, batch_size=1000, lr=4e-3, emb_dim=32, path='../models/cifar500.pkl')
     # samp = ddpm.sample(True)
     # utils.display_mnist(samp[0])
 
 
 @handle('resume-training')
 def resume():
-    mnist_data = utils.load_mnist()
-    ddpm = utils.load('../models/mnist_firstsuccess.pkl')
+    cifar = utils.load_cifar10()
+    ddpm = utils.load('../models/cifar1500.pkl')
     # one = torch.tensor([1], device="cuda")
     # ddpm.alpha_bar = torch.cat([one, ddpm.alpha_bar[:-1]], dim=0)
     # ddpm.alpha = torch.cat([one, ddpm.alpha[:-1]], dim=0)
     # ddpm.beta = torch.cat([1-one, ddpm.beta[:-1]], dim=0)
     # ddpm.save('../models/4layersfixed.pkl')
-    ddpm.train(mnist_data, epochs=500, batch_size=1000, lr=1e-3, path='../models/mnist_firstsuccess_p3.pkl')
-
+    ddpm.train(cifar, epochs=500, batch_size=1000, lr=3e-3, path='../models/cifar2000.pkl')
 
 @handle('sample-ddpm')
 def sample_simple_ddpm():
-    samples = 100
+    samples = 1
     # load model
-    ddpm = utils.load('../models/mnist_firstsuccess_p3.pkl')
+    ddpm = utils.load('../models/cifar2000.pkl')
+    # print(sum(p.numel() for p in ddpm.model.parameters() if p.requires_grad))
+
+    # sample model
+    sample = ddpm.sample(num_samples=samples, return_seq=True)
+    utils.create_cifar_gif(sample, filename=f'../samples/cifar-10/test2000.gif')
+
+@handle('gifs-ddpm')
+def generate_samples():
+    samples = 5
+    # load model
+    ddpm = utils.load('../models/mnist_firstsuccess.pkl')
     # print(sum(p.numel() for p in ddpm.model.parameters() if p.requires_grad))
 
     # sample model
     sample = ddpm.sample(num_samples=samples, return_seq=True)
     # utils.display_mnist(sample)
     for i, s in tqdm(enumerate(sample.unbind(1)), desc = 'Generate Samples', total=samples):
-        utils.create_mnist_gif(s, filename=f'../samples/mnist_sample{i}.gif')
+        utils.create_mnist_gif(s, filename=f'../samples/1500epochs{i}.gif')
     # utils.create_mnist_gif(sample, filename=f'../samples/mnist_progression.gif')
 
 

@@ -31,7 +31,7 @@ def load_cifar10():
     # Load images from .gz file
     with gzip.open('../data/cifar_images.gz', 'rb') as f:
         all_images_uint8 = np.load(f)
-        all_images_uint8 = np.reshape(all_images_uint8, (-1,3,32,32))
+        all_images_uint8 = np.reshape(all_images_uint8, (-1, 3, 32, 32))
 
     # Convert pixel values to float32 and scale to range [0, 1]
     all_images_normalized = all_images_uint8.astype(np.float32) / 255.0
@@ -64,12 +64,14 @@ def load_cifar10():
     #
     # print("Images saved to cifar_images.gz")
 
+
 def display_cifar(sample):
     sample = torch.squeeze(sample).cpu()
     sample = sample.reshape((32, 32, 3))
     plt.imshow(sample)
     plt.axis('off')  # Turn off axis
     plt.show()
+
 
 def load(path):
     abspath = os.path.abspath(path)
@@ -93,6 +95,29 @@ def display_mnist(sample):
     plt.imshow(sample, cmap=plt.get_cmap('gray'))
     plt.axis('off')  # Turn off axis
     plt.show()
+
+
+def create_cifar_gif(sample, filename='cifar_progression.gif'):
+    sample = np.squeeze(sample).cpu()
+    sample = np.transpose(sample, (0, 2, 3, 1))
+    images = []
+    for i, s in reversed(list(enumerate(sample))):
+        plt.imshow(s)
+        plt.title(f't = {i}')
+        plt.axis('off')  # Turn off axis
+        # Save plot to bytes buffer
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png')
+        buf.seek(0)
+        # Convert buffer to PIL Image
+        img = Image.open(buf)
+        images.append(img)
+        plt.close()
+        # print(i)
+
+    # frame_duration = duration * 1000 / len(images)
+    # Save images as GIF
+    images[0].save(filename, save_all=True, append_images=images[1:], duration=10, loop=1)
 
 
 def create_mnist_gif(sample, filename='mnist_progression.gif', duration=10):
