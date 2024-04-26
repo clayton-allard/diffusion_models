@@ -8,6 +8,7 @@ import time
 from IPython.display import display, clear_output
 from PIL import Image
 import io
+from tqdm import tqdm
 
 import torch
 import torchvision
@@ -97,6 +98,37 @@ def display_mnist(sample):
     plt.show()
 
 
+def save_images(sample):
+    for i, s in enumerate(sample):
+        # plt.figure(figsize=(4.80, 4.80))
+        # plt.imshow(s.squeeze().cpu(), cmap=plt.get_cmap('gray'))
+        # plt.axis('off')  # Turn off axis
+        # plt.savefig(f'../samples/mnist/outputs/t{i}', transparent = True)
+        # plt.close()
+
+        # Convert the pixel values to an image
+        image = Image.fromarray(s.squeeze().detach().cpu().numpy())
+
+        # Save the image to a file
+        image.save(f'../samples/mnist/outputs/t{i}.png')
+
+def save_sample(sample):
+    for i, s in enumerate(sample):
+        # Convert the pixel values to an image
+        image = Image.fromarray(s.squeeze().detach().cpu().numpy())
+
+        # Save the image to a file
+        image.save(f'../samples/mnist/single_sample/t{i}.png')
+
+        # plt.figure()
+        # plt.imshow(s.squeeze().cpu(), cmap=plt.get_cmap('gray'))
+        # plt.axis('off')  # Turn off axis
+        # plt.savefig(f'../samples/mnist/single_sample/t{i}')
+        # plt.close()
+
+    # , filename = f'../samples/mnist/single_sample/mnist_sample.png'
+
+
 def create_cifar_gif(sample, filename='cifar_progression.gif'):
     sample = np.squeeze(sample).cpu()
     sample = np.transpose(sample, (0, 2, 3, 1))
@@ -140,17 +172,6 @@ def create_mnist_gif(sample, filename='mnist_progression.gif', duration=10):
     # frame_duration = duration * 1000 / len(images)
     # Save images as GIF
     images[0].save(filename, save_all=True, append_images=images[1:], duration=10, loop=1)
-
-
-# def display_mnist_progression(sample):
-#     sample = np.squeeze(sample)
-#     for i, s in reversed(list(enumerate(sample))):
-#         plt.imshow(s.cpu(), cmap=plt.get_cmap('gray'))
-#         plt.title(f't = {i}')
-#         plt.axis('off')  # Turn off axis
-#         display(plt.gcf())
-#         time.sleep(1)
-#         clear_output(wait=True)
 
 _funcs = {}
 

@@ -130,6 +130,7 @@ class Simple_DDPM():
         with torch.no_grad():
             X = torch.zeros([self.T, num_samples] + list(self.shape)).to(self.device)
             X[-1] = torch.randn_like(X[-1])
+            # denoising
             for i in range(self.T - 1, 0, -1):
                 z = torch.randn_like(X[i]) if i > 1 else 0
                 sigma = torch.sqrt(self.beta[i])
@@ -142,6 +143,7 @@ class Simple_DDPM():
         self.model.train()
         X = (X.clamp(-1, 1) + 1) / 2
         X = (X * 255).type(torch.uint8)
+        # can return the whole diffusion process or just the final image
         if num_samples == 1:
             X = X.squeeze(dim=1)
             return X if return_seq else X[0]
