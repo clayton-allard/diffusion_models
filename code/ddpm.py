@@ -6,7 +6,6 @@ import torch
 import torch.nn as nn
 from torch import optim
 from torch.utils.data import DataLoader
-import pytorch_ssim
 
 from models import Unet
 
@@ -14,18 +13,14 @@ from models import Unet
 class Simple_DDPM():
     def __init__(self,
                  T=1000,
-                 # min_beta=1e-4,
-                 # max_beta=0.02,
-                 data = 'mnist',
+                 data='mnist',
                  device="cuda"):
         self.device = device
         self.T = T
         self.lr = None
         self.data = data
-        # self.beta = torch.linspace(min_beta, max_beta, steps=self.T).to(device)
-        # self.alpha = 1 - self.beta
-        # self.alpha_bar = torch.cumprod(self.alpha, dim=0)
 
+        # initialization for cosine variance schedule
         s = torch.tensor(0.008, device=device)
         t = torch.arange(0, self.T, 1).to(device)
         alpha_bar0 = torch.cos(s / (1 + s) * torch.pi / 2) ** 2
@@ -39,12 +34,13 @@ class Simple_DDPM():
         self.optimizer = None
         self.loss = None
 
+    # add noise to the images
     def forward_process(self, X, t):
         ab = self.alpha_bar[t][:, :, None, None]
         epsilon = torch.randn_like(X).to(self.device)
         return torch.sqrt(ab) * X + torch.sqrt(1 - ab) * epsilon, epsilon
 
-    def backward_process(self, Z, t, epsilon):
+    def reverse_process(self, Z, t, epsilon):
         cost = self.loss(epsilon, self.predict(Z, t))
 
         # back propogation
@@ -67,6 +63,7 @@ class Simple_DDPM():
 
         self.train(X, epochs=epochs, batch_size=batch_size, path=path)
 
+    # if we have a model saved, we can resume training and change hyper-parameters
     def train(self, X, epochs=100, batch_size=2500, lr=None, path=None):
 
         # if this is run before fitting
@@ -89,7 +86,7 @@ class Simple_DDPM():
                 rand_times = torch.randint(low=1, high=self.T, size=(len(batch),))
                 t = rand_times.unsqueeze(1).to(self.device)
                 Z, epsilon = self.forward_process(batch.to(self.device), t)
-                cost = self.backward_process(Z, t, epsilon)
+                cost = self.reverse_process(Z, t, epsilon)
 
                 # Update the tqdm progress bar with the current loss
                 progress_bar.set_postfix({'Loss': cost.item()})
@@ -119,13 +116,7 @@ class Simple_DDPM():
         return self.model(Z, t)
 
     def sample(self, num_samples=1, return_seq=False):
-        """
-        Generate a sample. Can generate the final output of the sample or the entire sequence of  the denoising.
-
-        :param num_samples: number of samples (default: True)
-        :param return_seq: set to True to return the whole sequence or False for just the final output (default: False)
-        :return: The generated samples
-        """
+        # put model in eval mode
         self.model.eval()
         with torch.no_grad():
             X = torch.zeros([self.T, num_samples] + list(self.shape)).to(self.device)
@@ -134,13 +125,10 @@ class Simple_DDPM():
             for i in range(self.T - 1, 0, -1):
                 z = torch.randn_like(X[i]) if i > 1 else 0
                 sigma = torch.sqrt(self.beta[i])
-                # print(X[i].shape)
                 X[i - 1] = (X[i] - self.beta[i] / torch.sqrt(1 - self.alpha_bar[i]) * self.predict(X[i],
-                                                                                                   torch.tensor(i).to(
-                                                                                                       self.device))) / torch.sqrt(
-                    self.alpha[i]) + sigma * z
-                im = X[i - 1].cpu().numpy()
+                                torch.tensor(i).to(self.device))) / torch.sqrt(self.alpha[i]) + sigma * z
         self.model.train()
+        # ensure that we can convert back to pixel space
         X = (X.clamp(-1, 1) + 1) / 2
         X = (X * 255).type(torch.uint8)
         # can return the whole diffusion process or just the final image

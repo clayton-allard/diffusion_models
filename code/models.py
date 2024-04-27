@@ -5,7 +5,7 @@ import torch.nn as nn
 
 class Unet(nn.Module):
 
-    def __init__(self, channels=3, layers=3, emb_dim=16, data = 'mnist',device='cuda', *args, **kwargs):
+    def __init__(self, channels=3, layers=3, emb_dim=16, data='mnist', device='cuda', *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.device = device
         self.emb_dim = emb_dim
@@ -17,11 +17,8 @@ class Unet(nn.Module):
             self.input = Block(channels, emb_dim, emb_dim=emb_dim, shape=32)
 
         # scale down
-        self.down = nn.ModuleList([Block(emb_dim * 2 ** i, emb_dim * 2 ** (i + 1), emb_dim=emb_dim, shape=2**(4 - i)) for i in range(layers)])
-        # self.down = nn.ModuleList(
-        #     [Block(emb_dim, emb_dim * 2, emb_dim=emb_dim, shape=16),
-        #      Block(emb_dim * 2, emb_dim * 4, emb_dim=emb_dim, shape=8),
-        #      Block(emb_dim * 4, emb_dim * 8, emb_dim=emb_dim, shape=4),])
+        self.down = nn.ModuleList([Block(emb_dim * 2 ** i, emb_dim * 2 ** (i + 1), emb_dim=emb_dim,
+                                         shape=2 ** (4 - i)) for i in range(layers)])
 
         # transition between downscale and upscale
         self.center = Block(emb_dim * 2 ** layers, emb_dim * 2 ** layers, emb_dim=emb_dim)
@@ -33,7 +30,9 @@ class Unet(nn.Module):
                                                             stride=2) for i in reversed(range(layers))])
 
         # Using channels from the transposed convolution and skip connections
-        self.up = nn.ModuleList([Block(emb_dim * 2 ** (i + 1), emb_dim * 2 ** i, emb_dim=emb_dim, shape=2**(5 - i)) for i in reversed(range(layers))])
+        self.up = nn.ModuleList(
+            [Block(emb_dim * 2 ** (i + 1), emb_dim * 2 ** i, emb_dim=emb_dim, shape=2 ** (5 - i)) for i in
+             reversed(range(layers))])
 
         # final prediction
         if data == 'mnist':
@@ -44,12 +43,9 @@ class Unet(nn.Module):
     # copied from dome272
     def pos_encoding(self, t, channels):
         inv_freq = 1.0 / (
-            10000
-            ** (torch.arange(0, channels, 2, device=self.device).float() / channels)
+                10000
+                ** (torch.arange(0, channels, 2, device=self.device).float() / channels)
         )
-        # print(inv_freq.shape)
-        # print(t.shape)
-        # print(channels // 2)
         pos_enc_a = torch.sin(t.repeat(1, channels // 2) * inv_freq.view(1, -1))
         pos_enc_b = torch.cos(t.repeat(1, channels // 2) * inv_freq.view(1, -1))
         # stack horizontally
@@ -60,7 +56,6 @@ class Unet(nn.Module):
         # store skip connections
         skip_connections = []
         # copied from dome272 to get inputs for position embedding
-        # t = t.unsqueeze(-1).type(torch.float)
         t = self.pos_encoding(t, self.emb_dim)
 
         # run forward process through UNET
@@ -75,17 +70,12 @@ class Unet(nn.Module):
 
         skip_connections.reverse()
 
-        # for s in skip_connections:
-        #     print(f'skip con: {s.shape}')
-
         x = self.center(x, t)
 
         # upscaling includes transposed convolutions and combining skip connections for convolution blocks
         for up, skip, trans in zip(self.up, skip_connections, self.trans_conv):
-            # print(x.shape)
             x = trans(x)
-            # print(x.shape)
-            # print(np.shape(skip))
+            # connect skip connections
             x = torch.cat([x, skip], dim=1)
             x = up(x, t)
 
@@ -93,7 +83,8 @@ class Unet(nn.Module):
 
 
 class Block(nn.Module):
-    def __init__(self, inp_channels, out_channels, kernel_size=3, padding=1, emb_dim=16, shape=None, device="cuda", *args, **kwargs):
+    def __init__(self, inp_channels, out_channels, kernel_size=3, padding=1, emb_dim=16, shape=None, device="cuda",
+                 *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.shape = shape if shape is None else (shape, shape)
 
@@ -117,6 +108,7 @@ class Block(nn.Module):
             # nn.Dropout2d(0.5))
 
     def forward(self, x, t):
+        # add time embedding to each channel
         self.shape = x.shape[-2:] if self.shape is None else self.shape
         time = 0 if t is None else self.time_embedding(t)[:, :, None, None].repeat(1, 1, self.shape[0], self.shape[1])
         return self.conv(x) + time

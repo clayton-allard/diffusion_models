@@ -1,32 +1,14 @@
 import argparse
 import os
-# os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
-# from keras.datasets import mnist
 import pickle
 import gzip
-import time
-from IPython.display import display, clear_output
-from PIL import Image
 import io
-from tqdm import tqdm
 
 import torch
-import torchvision
-from torchvision import datasets
-import torchvision.transforms as transforms
-from torchvision.transforms import ToTensor
-import torchvision.transforms.functional as TF
 from PIL import Image
-from torchvision.datasets import CIFAR10
 
 import matplotlib.pyplot as plt
 import numpy as np
-
-
-# def augment(data, num_samples):
-#     idx = torch.randint(0, len(data), (1,)).to("cuda")
-#     X = data[idx.cpu()].to("cuda")
-#     transform = transforms.RandomAffine(degrees=10, translate=(0.1, 0.1))
 
 def load_cifar10():
     # Load images from .gz file
@@ -37,33 +19,6 @@ def load_cifar10():
     # Convert pixel values to float32 and scale to range [0, 1]
     all_images_normalized = all_images_uint8.astype(np.float32) / 255.0
     return torch.tensor(all_images_normalized, dtype=torch.float32)
-    # # Define the directory containing CIFAR-10 dataset files
-    # data_dir = "../data/cifar-10-batches-py/"  # Example path to the directory containing dataset files
-    #
-    # # Initialize empty lists to store images and labels
-    # all_images = []
-    #
-    # # Iterate over each dataset file in the directory
-    # for filename in os.listdir(data_dir):
-    #     if filename.startswith("data_batch_"):  # Check if the file is a data batch file
-    #         file_path = os.path.join(data_dir, filename)
-    #         with open(file_path, 'rb') as file:
-    #             cifar_data = pickle.load(file, encoding='bytes')
-    #         images = cifar_data[b'data']  # Extract raw image data
-    #         images_reshaped = images.reshape(-1, 3, 32, 32).transpose(0, 2, 3, 1)  # Reshape images to (3, 32, 32)
-    #         all_images.append(images_reshaped)
-    #
-    # # Concatenate images from all batches
-    # all_images_concatenated = np.concatenate(all_images, axis=0)
-    #
-    # # Convert images to uint8 and scale to [0, 255]
-    # all_images_uint8 = (all_images_concatenated * 255).astype(np.uint8)
-    #
-    # # Save images to .gz file
-    # with gzip.open('../data/cifar_images.gz', 'wb') as f:
-    #     np.save(f, all_images_uint8)
-    #
-    # print("Images saved to cifar_images.gz")
 
 
 def display_cifar(sample):
@@ -119,14 +74,6 @@ def save_sample(sample):
 
         # Save the image to a file
         image.save(f'../samples/mnist/single_sample/t{i}.png')
-
-        # plt.figure()
-        # plt.imshow(s.squeeze().cpu(), cmap=plt.get_cmap('gray'))
-        # plt.axis('off')  # Turn off axis
-        # plt.savefig(f'../samples/mnist/single_sample/t{i}')
-        # plt.close()
-
-    # , filename = f'../samples/mnist/single_sample/mnist_sample.png'
 
 
 def create_cifar_gif(sample, filename='cifar_progression.gif'):
